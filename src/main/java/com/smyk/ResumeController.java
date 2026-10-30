@@ -1,11 +1,13 @@
 package com.smyk;
 
+import java.util.List;
 import java.util.Map;
 import org.apache.tika.Tika;
-import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.ollama.OllamaChatModel;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestClient;
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
@@ -13,14 +15,17 @@ import org.springframework.web.multipart.MultipartFile;
 @CrossOrigin(origins = "*", allowedHeaders = "*")
 public class ResumeController {
 
-    private final ChatClient chatClient;
     private final Tika tika = new Tika();
+    private final RestClient restClient;
 
-    public ResumeController(OllamaChatModel ollamaChatModel) {
-        this.chatClient = ChatClient.create(ollamaChatModel);
+    public ResumeController(@Value("${GROQ_API_KEY:}") String apiKey) {
+        this.restClient = RestClient.builder()
+                .baseUrl("https://api.groq.com/openai/v1/chat/completions")
+                .defaultHeader("Authorization", "Bearer " + apiKey)
+                .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                .build();
     }
 
-    // Direct Preflight OPTIONS Handler
     @RequestMapping(value = "/**", method = RequestMethod.OPTIONS)
     public ResponseEntity<Void> handleOptions() {
         return ResponseEntity.ok().build();
@@ -39,11 +44,7 @@ public class ResumeController {
          Reply in structured JSON format.
          """.formatted(content);
 
-        String aiResponse = chatClient.prompt()
-            .user(prompt)
-            .call()
-            .content();
-
+        String aiResponse = callGroq(prompt);
         return Map.of("analysis", aiResponse);
     }
 
@@ -72,11 +73,32 @@ public class ResumeController {
          keep response strictly valid json.
          """.formatted(resumeText, jobDescription);
 
-        String aiResponse = chatClient.prompt()
-            .user(prompt)
-            .call()
-            .content();
-
+        String aiResponse = callGroq(prompt);
         return Map.of("atsReport", aiResponse);
+    }
+
+    private String callGroq(String userPrompt) {
+        Map<String, Object> requestBody = Map.of(
+            "model", "llama-3.3-70b-versatile",
+            "messages", List.of(
+                Map.of("role", "user", "content", userPrompt)
+            ),
+            "temperature", 0.2
+        );
+
+        Map<?, ?> response = restClient.post()
+                .body(requestBody)
+                .retrieve()
+                .body(Map.class);
+
+        if (response != null && response.containsKey("choices")) {
+            List<?> choices = (List<?>) response.get("choices");
+            if (!choices.isEmpty()) {
+                Map<?, ?> firstChoice = (Map<?, ?>) choices.get(0);
+                Map<?, ?> message = (Map<?, ?>) firstChoice.get("message");
+                return (String) message.get("content");
+            }
+        }
+        return "{}";
     }
 }
