@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 import org.apache.tika.Tika;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -20,7 +21,7 @@ public class ResumeController {
 
     public ResumeController(@Value("${GROQ_API_KEY:}") String apiKey) {
         this.restClient = RestClient.builder()
-                .baseUrl("https://api.groq.com/openai/v1/chat/completions")
+                .baseUrl("https://api.groq.com/openai")
                 .defaultHeader("Authorization", "Bearer " + apiKey)
                 .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
                 .build();
@@ -32,49 +33,68 @@ public class ResumeController {
     }
 
     @PostMapping("/analyser")
-    public Map<String, Object> analyser(@RequestParam("file") MultipartFile file) throws Exception {
-        String content = tika.parseToString(file.getInputStream());
+    public ResponseEntity<?> analyser(@RequestParam("file") MultipartFile file) {
+        try {
+            if (file == null || file.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Uploaded file is empty"));
+            }
 
-        String prompt = """
-         Analyse this resume text:
-         %s
-         1. Extract Key skills
-         2. Rate overall resume quality (1-10)
-         3. Suggest 3 improvements
-         Reply in structured JSON format.
-         """.formatted(content);
+            String content = tika.parseToString(file.getInputStream());
 
-        String aiResponse = callGroq(prompt);
-        return Map.of("analysis", aiResponse);
+            String prompt = """
+             You are an expert HR resume evaluator. Analyze this resume text carefully:
+             %s
+
+             Return ONLY a raw, strictly valid JSON object without markdown formatting or code blocks:
+             {
+               "keySkills": ["skill1", "skill2"],
+               "qualityRating": 8,
+               "improvements": ["improvement1", "improvement2", "improvement3"]
+             }
+             """.formatted(content);
+
+            String aiResponse = callGroq(prompt);
+            return ResponseEntity.ok(Map.of("analysis", aiResponse));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Analysis failed: " + e.getMessage()));
+        }
     }
 
     @PostMapping("/ats-check")
-    public Map<String, Object> analyseATS(@RequestParam("file") MultipartFile file,
-                                          @RequestParam("jd") String jobDescription) throws Exception {
-        String resumeText = tika.parseToString(file.getInputStream());
+    public ResponseEntity<?> analyseATS(@RequestParam("file") MultipartFile file,
+                                          @RequestParam("jd") String jobDescription) {
+        try {
+            if (file == null || file.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Uploaded file is empty"));
+            }
 
-        String prompt = """
-         You are an expert ATS analyzer. Compare the resume and job description.
+            String resumeText = tika.parseToString(file.getInputStream());
 
-         -----
-         Resume:
-         %s
-         -----
-         Job Description:
-         %s
-         ----
+            String prompt = """
+             You are an expert ATS analyzer. Compare the provided resume and job description.
 
-         Analyse and return a structured JSON with:
-         1. "atsScore" (0-100)
-         2. "matchedKeywords" (list)
-         3. "missingKeywords" (list)
-         4. "summary" (short paragraph)
+             Resume Text:
+             %s
 
-         keep response strictly valid json.
-         """.formatted(resumeText, jobDescription);
+             Job Description:
+             %s
 
-        String aiResponse = callGroq(prompt);
-        return Map.of("atsReport", aiResponse);
+             Return ONLY a raw, strictly valid JSON object without markdown formatting or code blocks:
+             {
+               "atsScore": 85,
+               "matchedKeywords": ["keyword1", "keyword2"],
+               "missingKeywords": ["keyword3", "keyword4"],
+               "summary": "Brief assessment paragraph."
+             }
+             """.formatted(resumeText, jobDescription);
+
+            String aiResponse = callGroq(prompt);
+            return ResponseEntity.ok(Map.of("atsReport", aiResponse));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "ATS Check failed: " + e.getMessage()));
+        }
     }
 
     private String callGroq(String userPrompt) {
@@ -87,6 +107,7 @@ public class ResumeController {
         );
 
         Map<?, ?> response = restClient.post()
+                .uri("/v1/chat/completions")
                 .body(requestBody)
                 .retrieve()
                 .body(Map.class);
