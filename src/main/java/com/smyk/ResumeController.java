@@ -95,7 +95,7 @@ public class ResumeController {
 
     private String callGroq(String userPrompt) {
         Map<String, Object> requestBody = Map.of(
-            "model", "llama-3.3-70b-versatile",
+            "model", "openai/gpt-oss-20b",
             "messages", List.of(
                 Map.of("role", "user", "content", userPrompt)
             ),
@@ -116,6 +116,6 @@ public class ResumeController {
                 return (String) message.get("content");
             }
         }
-        return "No response generated from Groq.";
+        return "{}";
     }
 }
