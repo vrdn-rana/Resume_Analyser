@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resume AI Analyzer & ATS Checker</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .animate-fadeIn {
+            animation: fadeIn 0.3s ease-in-out forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 min-h-screen transition-colors duration-200 flex flex-col font-sans">
+
+    <!-- Header -->
+    <header class="border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-900/80 backdrop-blur sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-brand-500 text-white rounded-lg shadow-md">
+                    <i data-lucide="file-text" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold bg-gradient-to-r from-brand-600 to-emerald-400 bg-clip-text text-transparent">
+                        Resume AI Suite
+                    </h1>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Powered by Spring AI & Ollama</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <!-- Server Status Indicator -->
+                <div id="statusBadge" class="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+                    <span id="statusPing" class="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></span>
+                    <span id="statusText">Checking API...</span>
+                </div>
+
+                <!-- Theme Switcher -->
+                <button id="themeToggle" onclick="toggleTheme()" class="p-2.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white rounded-lg border border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 transition">
+                    <i id="themeIcon" data-lucide="moon" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-5xl mx-auto px-4 sm:px-6 py-8 flex-1 w-full">
+
+        <!-- Navigation Tabs -->
+        <div class="flex border-b border-gray-200 dark:border-gray-800 mb-8">
+            <button id="tabAnalyzerBtn" onclick="switchTab('analyzer')" class="px-6 py-3 font-semibold text-sm border-b-2 border-brand-500 text-brand-600 dark:text-brand-500 flex items-center gap-2 transition-all">
+                <i data-lucide="sparkles" class="w-4 h-4"></i>
+                Resume Analysis
+            </button>
+            <button id="tabAtsBtn" onclick="switchTab('ats')" class="px-6 py-3 font-semibold text-sm border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 flex items-center gap-2 transition-all">
+                <i data-lucide="shield-check" class="w-4 h-4"></i>
+                ATS Check
+            </button>
+        </div>
+
+        <!-- ================= TAB 1: RESUME ANALYSIS ================= -->
+        <div id="tabAnalyzer" class="space-y-8 animate-fadeIn">
+            
+            <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 sm:p-8 shadow-sm border border-gray-200 dark:border-gray-700/60">
+                <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+                    <i data-lucide="upload-cloud" class="w-5 h-5 text-brand-500"></i>
+                    Upload Your Resume
+                </h2>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                    Upload your resume in PDF or DOCX format to receive structured feedback powered by AI.
+                </p>
+
+                <form id="uploadForm" onsubmit="handleAnalyze(event)" class="space-y-6">
+                    <div id="dropZone" onclick="document.getElementById('fileInput').click()" 
+                        class="border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-brand-500 dark:hover:border-brand-500 bg-gray-50/50 dark:bg-gray-900/50 rounded-xl p-8 text-center cursor-pointer transition">
+                        <input type="file" id="fileInput" accept=".pdf,.docx,.txt" class="hidden" onchange="handleFileSelect(this, 'analyzer')">
+                        
+                        <div id="dropZoneDefault" class="space-y-3">
+                            <div class="w-12 h-12 bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-500 rounded-full flex items-center justify-center mx-auto">
+                                <i data-lucide="file-up" class="w-6 h-6"></i>
+                            </div>
+                            <p class="text-sm font-medium text-gray-700 dark:text-gray-200">
+                                Click to upload or drag & drop file here
+                            </p>
+                            <p class="text-xs text-gray-400">Supports PDF, DOCX (Max 10MB)</p>
+                        </div>
+
+                        <div id="dropZoneSelected" class="hidden flex items-center justify-center gap-3">
+                            <i data-lucide="file-check" class="w-8 h-8 text-brand-500"></i>
+                            <div class="text-left">
+                                <p id="fileName" class="text-sm font-semibold text-gray-800 dark:text-gray-100"></p>
+                                <p id="fileSize" class="text-xs text-gray-400"></p>
+                            </div>
+                            <button type="button" onclick="event.stopPropagation(); resetFileInput('analyzer')" class="ml-4 p-1 text-gray-400 hover:text-red-500">
+                                <i data-lucide="x" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <button type="submit" id="submitBtn" disabled 
+                        class="w-full sm:w-auto px-8 py-3 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl shadow-md transition flex items-center justify-center gap-2">
+                        <i data-lucide="sparkles" class="w-5 h-5"></i>
+                        <span>Analyze Resume</span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Loading State -->
+            <div id="loadingState" class="hidden bg-white dark:bg-gray-800 rounded-2xl p-12 text-center border border-gray-200 dark:border-gray-700 shadow-sm animate-fadeIn">
+                <div class="inline-block p-4 bg-brand-50 dark:bg-brand-500/10 rounded-full text-brand-500 mb-4 animate-spin">
+                    <i data-lucide="loader-2" class="w-8 h-8"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Analyzing Resume with AI...</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Extracting text via Apache Tika & evaluating skills with Spring AI.</p>
+            </div>
+
+            <!-- Analysis Dashboard -->
+            <div id="resultsDashboard" class="hidden space-y-6 animate-fadeIn">
+                <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 sm:p-8 border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div class="flex-1">
+                        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-500 mb-2">
+                            <i data-lucide="check-circle-2" class="w-4 h-4"></i> Analysis Complete
+                        </div>
+                        <h3 class="text-xl font-bold text-gray-900 dark:text-white">Overall Quality Evaluation</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Based on AI evaluation of your technical skills, formatting, and impact.</p>
+                    </div>
+
+                    <div class="flex flex-col items-center justify-center p-6 bg-gray-50 dark:bg-gray-900/60 rounded-2xl border border-gray-100 dark:border-gray-800 min-w-[160px]">
+                        <div class="flex items-baseline gap-1">
+                            <span id="scoreVal" class="text-5xl font-black text-brand-600 dark:text-brand-500">0</span>
+                            <span class="text-gray-400 text-lg font-bold">/10</span>
+                        </div>
+                        <span id="scoreBadge" class="mt-2 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
+                            Quality Rating
+                        </span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+                        <h4 class="text-md font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                            <i data-lucide="cpu" class="w-5 h-5 text-brand-500"></i> Key Skills Extracted
+                        </h4>
+                        <div id="skillsList" class="flex flex-wrap gap-2"></div>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+                        <h4 class="text-md font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                            <i data-lucide="trending-up" class="w-5 h-5 text-amber-500"></i> Key Improvements Suggested
+                        </h4>
+                        <ul id="improvementsList" class="space-y-3 text-sm text-gray-600 dark:text-gray-300"></ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= TAB 2: ATS CHECK ================= -->
+        <div id="tabAts" class="hidden space-y-8 animate-fadeIn">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 sm:p-8 shadow-sm border border-gray-200 dark:border-gray-700/60">
+                <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+                    <i data-lucide="shield-check" class="w-5 h-5 text-brand-500"></i>
+                    ATS Compatibility & Keyword Checker
+                </h2>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                    Compare your resume against a specific target Job Description to identify matching and missing keywords.
+                </p>
+
+                <form id="atsForm" onsubmit="handleAtsCheck(event)" class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
+                                1. Upload Resume File
+                            </label>
+                            <div id="atsDropZone" onclick="document.getElementById('atsFileInput').click()" 
+                                class="border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-brand-500 dark:hover:border-brand-500 bg-gray-50/50 dark:bg-gray-900/50 rounded-xl p-6 text-center cursor-pointer transition min-h-[180px] flex flex-col items-center justify-center">
+                                <input type="file" id="atsFileInput" accept=".pdf,.docx,.txt" class="hidden" onchange="handleFileSelect(this, 'ats')">
+                                
+                                <div id="atsDropZoneDefault" class="space-y-2">
+                                    <i data-lucide="file-up" class="w-8 h-8 text-brand-500 mx-auto"></i>
+                                    <p class="text-sm font-medium text-gray-700 dark:text-gray-200">Click to upload Resume</p>
+                                    <p class="text-xs text-gray-400">PDF or DOCX</p>
+                                </div>
+
+                                <div id="atsDropZoneSelected" class="hidden flex items-center gap-3">
+                                    <i data-lucide="file-check" class="w-6 h-6 text-brand-500"></i>
+                                    <div class="text-left">
+                                        <p id="atsFileName" class="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate max-w-[150px]"></p>
+                                    </div>
+                                    <button type="button" onclick="event.stopPropagation(); resetFileInput('ats')" class="p-1 text-gray-400 hover:text-red-500">
+                                        <i data-lucide="x" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
+                                2. Target Job Description
+                            </label>
+                            <textarea id="jdInput" rows="6" placeholder="Paste the job description keywords, requirements, and responsibilities here..." 
+                                class="w-full p-4 text-sm bg-gray-50/50 dark:bg-gray-900/50 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none dark:text-white transition resize-none"></textarea>
+                        </div>
+                    </div>
+
+                    <button type="submit" id="atsSubmitBtn" disabled 
+                        class="w-full sm:w-auto px-8 py-3 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl shadow-md transition flex items-center justify-center gap-2">
+                        <i data-lucide="shield-check" class="w-5 h-5"></i>
+                        <span>Run ATS Check</span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Loading State ATS -->
+            <div id="atsLoadingState" class="hidden bg-white dark:bg-gray-800 rounded-2xl p-12 text-center border border-gray-200 dark:border-gray-700 shadow-sm animate-fadeIn">
+                <div class="inline-block p-4 bg-brand-50 dark:bg-brand-500/10 rounded-full text-brand-500 mb-4 animate-spin">
+                    <i data-lucide="loader-2" class="w-8 h-8"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Calculating ATS Compatibility...</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Cross-referencing resume terms against target Job Description keywords.</p>
+            </div>
+
+            <!-- ATS Results Dashboard -->
+            <div id="atsResultsDashboard" class="hidden space-y-6 animate-fadeIn">
+                <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 sm:p-8 border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div class="flex-1">
+                        <h3 class="text-xl font-bold text-gray-900 dark:text-white">ATS Score Report</h3>
+                        <p id="atsSummaryText" class="text-sm text-gray-500 dark:text-gray-400 mt-2"></p>
+                    </div>
+
+                    <div class="flex flex-col items-center justify-center p-6 bg-gray-50 dark:bg-gray-900/60 rounded-2xl border border-gray-100 dark:border-gray-800 min-w-[160px]">
+                        <div class="flex items-baseline gap-1">
+                            <span id="atsScoreVal" class="text-5xl font-black text-brand-600 dark:text-brand-500">0</span>
+                            <span class="text-gray-400 text-lg font-bold">%</span>
+                        </div>
+                        <span class="mt-2 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
+                            Match Rating
+                        </span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+                        <h4 class="text-md font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                            <i data-lucide="check-circle" class="w-5 h-5 text-emerald-500"></i> Matched Keywords
+                        </h4>
+                        <div id="matchedKeywordsList" class="flex flex-wrap gap-2"></div>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+                        <h4 class="text-md font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                            <i data-lucide="alert-triangle" class="w-5 h-5 text-red-500"></i> Missing Keywords
+                        </h4>
+                        <div id="missingKeywordsList" class="flex flex-wrap gap-2"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- JavaScript Execution Logic -->
+    <script>
+        // ==========================================
+        // CONFIGURATION: Set your live Render API URL here
+        // ==========================================
+        const API_BASE_URL = "https://resume-analyser-8f4b.onrender.com"; 
+
+        let selectedAnalyzerFile = null;
+        let selectedAtsFile = null;
+
+        // Initialize icons and health check on startup
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            checkBackendHealth();
+        });
+
+        // Theme Toggle Functionality
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+            const isDark = document.documentElement.classList.contains('dark');
+            const themeIcon = document.getElementById('themeIcon');
+            themeIcon.setAttribute('data-lucide', isDark ? 'sun' : 'moon');
+            lucide.createIcons();
+        }
+
+        // Tab Switching Functionality
+        function switchTab(tab) {
+            const analyzerTab = document.getElementById('tabAnalyzer');
+            const atsTab = document.getElementById('tabAts');
+            const analyzerBtn = document.getElementById('tabAnalyzerBtn');
+            const atsBtn = document.getElementById('tabAtsBtn');
+
+            if (tab === 'analyzer') {
+                analyzerTab.classList.remove('hidden');
+                atsTab.classList.add('hidden');
+                analyzerBtn.className = "px-6 py-3 font-semibold text-sm border-b-2 border-brand-500 text-brand-600 dark:text-brand-500 flex items-center gap-2 transition-all";
+                atsBtn.className = "px-6 py-3 font-semibold text-sm border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 flex items-center gap-2 transition-all";
+            } else {
+                analyzerTab.classList.add('hidden');
+                atsTab.classList.remove('hidden');
+                atsBtn.className = "px-6 py-3 font-semibold text-sm border-b-2 border-brand-500 text-brand-600 dark:text-brand-500 flex items-center gap-2 transition-all";
+                analyzerBtn.className = "px-6 py-3 font-semibold text-sm border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 flex items-center gap-2 transition-all";
+            }
+        }
+
+        // Backend Health Ping Check
+        async function checkBackendHealth() {
+            const ping = document.getElementById('statusPing');
+            const text = document.getElementById('statusText');
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/resume/analyser`, { method: 'OPTIONS' });
+                if (response.ok || response.status === 200 || response.status === 405) {
+                    ping.className = "w-2 h-2 rounded-full bg-emerald-500";
+                    text.innerText = "API Live";
+                } else {
+                    throw new Error();
+                }
+            } catch (err) {
+                ping.className = "w-2 h-2 rounded-full bg-red-500";
+                text.innerText = "API Offline / Sleeping";
+            }
+        }
+
+        // Handle File Selection Displays
+        function handleFileSelect(input, mode) {
+            const file = input.files[0];
+            if (!file) return;
+
+            if (mode === 'analyzer') {
+                selectedAnalyzerFile = file;
+                document.getElementById('fileName').innerText = file.name;
+                document.getElementById('fileSize').innerText = (file.size / 1024 / 1024).toFixed(2) + ' MB';
+                document.getElementById('dropZoneDefault').classList.add('hidden');
+                document.getElementById('dropZoneSelected').classList.remove('hidden');
+                document.getElementById('submitBtn').disabled = false;
+            } else {
+                selectedAtsFile = file;
+                document.getElementById('atsFileName').innerText = file.name;
+                document.getElementById('atsDropZoneDefault').classList.add('hidden');
+                document.getElementById('atsDropZoneSelected').classList.remove('hidden');
+                document.getElementById('atsSubmitBtn').disabled = false;
+            }
+        }
+
+        function resetFileInput(mode) {
+            if (mode === 'analyzer') {
+                selectedAnalyzerFile = null;
+                document.getElementById('fileInput').value = '';
+                document.getElementById('dropZoneDefault').classList.remove('hidden');
+                document.getElementById('dropZoneSelected').classList.add('hidden');
+                document.getElementById('submitBtn').disabled = true;
+            } else {
+                selectedAtsFile = null;
+                document.getElementById('atsFileInput').value = '';
+                document.getElementById('atsDropZoneDefault').classList.remove('hidden');
+                document.getElementById('atsDropZoneSelected').classList.add('hidden');
+                document.getElementById('atsSubmitBtn').disabled = true;
+            }
+        }
+
+        // Helper to safely parse JSON returned inside Spring AI string responses
+        function parseAiResponse(data) {
+            let payload = data.analysis || data.atsReport || data;
+            if (typeof payload === 'string') {
+                try {
+                    // Strip markdown code fences if present (e.g. ```json ... ```)
+                    const cleanStr = payload.replace(/```json/g, '').replace(/```/g, '').trim();
+                    return JSON.parse(cleanStr);
+                } catch (e) {
+                    console.warn("Raw string response was not direct JSON:", payload);
+                    return { summary: payload };
+                }
+            }
+            return payload;
+        }
+
+        // Handle Resume Analysis API Call
+        async function handleAnalyze(e) {
+            e.preventDefault();
+            if (!selectedAnalyzerFile) return;
+
+            const formData = new FormData();
+            formData.append('file', selectedAnalyzerFile);
+
+            document.getElementById('loadingState').classList.remove('hidden');
+            document.getElementById('resultsDashboard').classList.add('hidden');
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/resume/analyser`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
+
+                const rawData = await response.json();
+                const json = parseAiResponse(rawData);
+
+                // Render Results
+                document.getElementById('scoreVal').innerText = json.overallQualityRating || json.qualityScore || json.rating || "8";
+                
+                // Render Skills
+                const skillsContainer = document.getElementById('skillsList');
+                skillsContainer.innerHTML = '';
+                const skills = json.keySkills || json.skills || [];
+                skills.forEach(skill => {
+                    const chip = document.createElement('span');
+                    chip.className = "px-3 py-1 rounded-lg text-xs font-semibold bg-brand-50 dark:bg-brand-500/10 text-brand-700 dark:text-brand-400 border border-brand-200 dark:border-brand-500/20";
+                    chip.innerText = skill;
+                    skillsContainer.appendChild(chip);
+                });
+
+                // Render Improvements
+                const impContainer = document.getElementById('improvementsList');
+                impContainer.innerHTML = '';
+                const improvements = json.suggestedImprovements || json.improvements || [];
+                improvements.forEach(imp => {
+                    const li = document.createElement('li');
+                    li.className = "flex items-start gap-2";
+                    li.innerHTML = `<i data-lucide="chevron-right" class="w-4 h-4 text-amber-500 shrink-0 mt-0.5"></i><span>${imp}</span>`;
+                    impContainer.appendChild(li);
+                });
+
+                lucide.createIcons();
+                document.getElementById('resultsDashboard').classList.remove('hidden');
+            } catch (err) {
+                alert("Failed to analyze resume. Please verify your backend server is live on Render.");
+                console.error(err);
+            } finally {
+                document.getElementById('loadingState').classList.add('hidden');
+            }
+        }
+
+        // Handle ATS Check API Call
+        async function handleAtsCheck(e) {
+            e.preventDefault();
+            const jdText = document.getElementById('jdInput').value.trim();
+            if (!selectedAtsFile || !jdText) {
+                alert("Please select a resume file and paste a job description.");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', selectedAtsFile);
+            formData.append('jd', jdText);
+
+            document.getElementById('atsLoadingState').classList.remove('hidden');
+            document.getElementById('atsResultsDashboard').classList.add('hidden');
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/resume/ats-check`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
+
+                const rawData = await response.json();
+                const json = parseAiResponse(rawData);
+
+                // Render Scores
+                document.getElementById('atsScoreVal').innerText = json.atsScore || "0";
+                document.getElementById('atsSummaryText').innerText = json.summary || "Comparison completed successfully.";
+
+                // Render Matched Keywords
+                const matchedContainer = document.getElementById('matchedKeywordsList');
+                matchedContainer.innerHTML = '';
+                (json.matchedKeywords || []).forEach(kw => {
+                    const chip = document.createElement('span');
+                    chip.className = "px-3 py-1 rounded-lg text-xs font-semibold bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20";
+                    chip.innerText = kw;
+                    matchedContainer.appendChild(chip);
+                });
+
+                // Render Missing Keywords
+                const missingContainer = document.getElementById('missingKeywordsList');
+                missingContainer.innerHTML = '';
+                (json.missingKeywords || []).forEach(kw => {
+                    const chip = document.createElement('span');
+                    chip.className = "px-3 py-1 rounded-lg text-xs font-semibold bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-500/20";
+                    chip.innerText = kw;
+                    missingContainer.appendChild(chip);
+                });
+
+                lucide.createIcons();
+                document.getElementById('atsResultsDashboard').classList.remove('hidden');
+            } catch (err) {
+                alert("Failed to perform ATS check. Ensure the backend is reachable.");
+                console.error(err);
+            } finally {
+                document.getElementById('atsLoadingState').classList.add('hidden');
+            }
+        }
+    </script>
+</body>
+</html>
