@@ -400,123 +400,61 @@
             return payload;
         }
 
-        // Handle Resume Analysis API Call
-        async function handleAnalyze(e) {
-            e.preventDefault();
-            if (!selectedAnalyzerFile) return;
+		async function handleAnalyze(event) {
+		    event.preventDefault();
+		    // ... file upload logic ...
 
-            const formData = new FormData();
-            formData.append('file', selectedAnalyzerFile);
+		    const response = await fetch("https://resume-analyser-d9ux.onrender.com/resume/analyser", {
+		        method: "POST",
+		        body: formData
+		    });
 
-            document.getElementById('loadingState').classList.remove('hidden');
-            document.getElementById('resultsDashboard').classList.add('hidden');
+		    const data = await response.json();
+		    
+		    // Parse the inner JSON string returned by Groq
+		    const analysisObj = typeof data.analysis === 'string' ? JSON.parse(data.analysis) : data.analysis;
 
-            try {
-                const response = await fetch(`${API_BASE_URL}/resume/analyser`, {
-                    method: 'POST',
-                    body: formData
-                });
+		    // Render Key Skills
+		    const skillsList = document.getElementById("keySkillsList"); // update with your element ID
+		    skillsList.innerHTML = analysisObj.keySkills.map(skill => `<li>${skill}</li>`).join('');
 
-                if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
+		    // Render Improvements
+		    const improvementsList = document.getElementById("improvementsList"); // update with your element ID
+		    improvementsList.innerHTML = analysisObj.improvements.map(imp => `<li>${imp}</li>`).join('');
 
-                const rawData = await response.json();
-                const json = parseAiResponse(rawData);
-
-                // Render Results
-                document.getElementById('scoreVal').innerText = json.overallQualityRating || json.qualityScore || json.rating || "8";
-                
-                // Render Skills
-                const skillsContainer = document.getElementById('skillsList');
-                skillsContainer.innerHTML = '';
-                const skills = json.keySkills || json.skills || [];
-                skills.forEach(skill => {
-                    const chip = document.createElement('span');
-                    chip.className = "px-3 py-1 rounded-lg text-xs font-semibold bg-brand-50 dark:bg-brand-500/10 text-brand-700 dark:text-brand-400 border border-brand-200 dark:border-brand-500/20";
-                    chip.innerText = skill;
-                    skillsContainer.appendChild(chip);
-                });
-
-                // Render Improvements
-                const impContainer = document.getElementById('improvementsList');
-                impContainer.innerHTML = '';
-                const improvements = json.suggestedImprovements || json.improvements || [];
-                improvements.forEach(imp => {
-                    const li = document.createElement('li');
-                    li.className = "flex items-start gap-2";
-                    li.innerHTML = `<i data-lucide="chevron-right" class="w-4 h-4 text-amber-500 shrink-0 mt-0.5"></i><span>${imp}</span>`;
-                    impContainer.appendChild(li);
-                });
-
-                lucide.createIcons();
-                document.getElementById('resultsDashboard').classList.remove('hidden');
-            } catch (err) {
-                alert("Failed to analyze resume. Please verify your backend server is live on Render.");
-                console.error(err);
-            } finally {
-                document.getElementById('loadingState').classList.add('hidden');
-            }
-        }
+		    // Render Quality Rating
+		    document.getElementById("qualityScore").innerText = `${analysisObj.qualityRating} / 10`;
+		}
 
         // Handle ATS Check API Call
-        async function handleAtsCheck(e) {
-            e.preventDefault();
-            const jdText = document.getElementById('jdInput').value.trim();
-            if (!selectedAtsFile || !jdText) {
-                alert("Please select a resume file and paste a job description.");
-                return;
-            }
+		async function handleAtsCheck(event) {
+		    event.preventDefault();
+		    // ... file and jd upload logic ...
 
-            const formData = new FormData();
-            formData.append('file', selectedAtsFile);
-            formData.append('jd', jdText);
+		    const response = await fetch("https://resume-analyser-d9ux.onrender.com/resume/ats-check", {
+		        method: "POST",
+		        body: formData
+		    });
 
-            document.getElementById('atsLoadingState').classList.remove('hidden');
-            document.getElementById('atsResultsDashboard').classList.add('hidden');
+		    const data = await response.json();
 
-            try {
-                const response = await fetch(`${API_BASE_URL}/resume/ats-check`, {
-                    method: 'POST',
-                    body: formData
-                });
+		    // Parse the inner JSON string returned by Groq
+		    const atsObj = typeof data.atsReport === 'string' ? JSON.parse(data.atsReport) : data.atsReport;
 
-                if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
+		    // Render Score
+		    document.getElementById("atsScoreGauge").innerText = `${atsObj.atsScore}%`;
 
-                const rawData = await response.json();
-                const json = parseAiResponse(rawData);
+		    // Render Matched Keywords
+		    const matchedContainer = document.getElementById("matchedKeywordsList");
+		    matchedContainer.innerHTML = atsObj.matchedKeywords.map(kw => `<span class="badge badge-success">${kw}</span>`).join(' ');
 
-                // Render Scores
-                document.getElementById('atsScoreVal').innerText = json.atsScore || "0";
-                document.getElementById('atsSummaryText').innerText = json.summary || "Comparison completed successfully.";
+		    // Render Missing Keywords
+		    const missingContainer = document.getElementById("missingKeywordsList");
+		    missingContainer.innerHTML = atsObj.missingKeywords.map(kw => `<span class="badge badge-danger">${kw}</span>`).join(' ');
 
-                // Render Matched Keywords
-                const matchedContainer = document.getElementById('matchedKeywordsList');
-                matchedContainer.innerHTML = '';
-                (json.matchedKeywords || []).forEach(kw => {
-                    const chip = document.createElement('span');
-                    chip.className = "px-3 py-1 rounded-lg text-xs font-semibold bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20";
-                    chip.innerText = kw;
-                    matchedContainer.appendChild(chip);
-                });
-
-                // Render Missing Keywords
-                const missingContainer = document.getElementById('missingKeywordsList');
-                missingContainer.innerHTML = '';
-                (json.missingKeywords || []).forEach(kw => {
-                    const chip = document.createElement('span');
-                    chip.className = "px-3 py-1 rounded-lg text-xs font-semibold bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-500/20";
-                    chip.innerText = kw;
-                    missingContainer.appendChild(chip);
-                });
-
-                lucide.createIcons();
-                document.getElementById('atsResultsDashboard').classList.remove('hidden');
-            } catch (err) {
-                alert("Failed to perform ATS check. Ensure the backend is reachable.");
-                console.error(err);
-            } finally {
-                document.getElementById('atsLoadingState').classList.add('hidden');
-            }
-        }
+		    // Render Summary
+		    document.getElementById("atsSummaryText").innerText = atsObj.summary;
+		}
     </script>
 </body>
 </html>
