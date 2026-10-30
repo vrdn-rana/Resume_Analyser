@@ -228,4 +228,276 @@
                     </div>
 
                     <button type="submit" id="atsSubmitBtn" disabled 
-                        class="w-full sm:w-auto px-8 py-3 bg-brand-600 hover:bg-brand-700 disabled:opacity
+                        class="w-full sm:w-auto px-8 py-3 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl shadow-md transition flex items-center justify-center gap-2">
+                        <i data-lucide="shield-check" class="w-5 h-5"></i>
+                        <span>Run ATS Check</span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Loading State ATS -->
+            <div id="atsLoadingState" class="hidden bg-white dark:bg-gray-800 rounded-2xl p-12 text-center border border-gray-200 dark:border-gray-700 shadow-sm animate-fadeIn">
+                <div class="inline-block p-4 bg-brand-50 dark:bg-brand-500/10 rounded-full text-brand-500 mb-4 animate-spin">
+                    <i data-lucide="loader-2" class="w-8 h-8"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Calculating ATS Compatibility...</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Cross-referencing resume terms against target Job Description keywords.</p>
+            </div>
+
+            <!-- ATS Results Dashboard -->
+            <div id="atsResultsDashboard" class="hidden space-y-6 animate-fadeIn">
+                <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 sm:p-8 border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div class="flex-1">
+                        <h3 class="text-xl font-bold text-gray-900 dark:text-white">ATS Score Report</h3>
+                        <p id="atsSummaryText" class="text-sm text-gray-500 dark:text-gray-400 mt-2"></p>
+                    </div>
+
+                    <div class="flex flex-col items-center justify-center p-6 bg-gray-50 dark:bg-gray-900/60 rounded-2xl border border-gray-100 dark:border-gray-800 min-w-[160px]">
+                        <div class="flex items-baseline gap-1">
+                            <span id="atsScoreVal" class="text-5xl font-black text-brand-600 dark:text-brand-500">0</span>
+                            <span class="text-gray-400 text-lg font-bold">%</span>
+                        </div>
+                        <span class="mt-2 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
+                            Match Rating
+                        </span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+                        <h4 class="text-md font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                            <i data-lucide="check-circle" class="w-5 h-5 text-emerald-500"></i> Matched Keywords
+                        </h4>
+                        <div id="matchedKeywordsList" class="flex flex-wrap gap-2"></div>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+                        <h4 class="text-md font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                            <i data-lucide="alert-triangle" class="w-5 h-5 text-red-500"></i> Missing Keywords
+                        </h4>
+                        <div id="missingKeywordsList" class="flex flex-wrap gap-2"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- JavaScript Execution Logic -->
+    <script>
+        const API_BASE_URL = "https://resume-analyser-d9ux.onrender.com";
+
+        let selectedAnalyzerFile = null;
+        let selectedAtsFile = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            checkBackendHealth();
+        });
+
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+            const isDark = document.documentElement.classList.contains('dark');
+            const themeIcon = document.getElementById('themeIcon');
+            themeIcon.setAttribute('data-lucide', isDark ? 'sun' : 'moon');
+            lucide.createIcons();
+        }
+
+        function switchTab(tab) {
+            const analyzerTab = document.getElementById('tabAnalyzer');
+            const atsTab = document.getElementById('tabAts');
+            const analyzerBtn = document.getElementById('tabAnalyzerBtn');
+            const atsBtn = document.getElementById('tabAtsBtn');
+
+            if (tab === 'analyzer') {
+                analyzerTab.classList.remove('hidden');
+                atsTab.classList.add('hidden');
+                analyzerBtn.className = "px-6 py-3 font-semibold text-sm border-b-2 border-brand-500 text-brand-600 dark:text-brand-500 flex items-center gap-2 transition-all";
+                atsBtn.className = "px-6 py-3 font-semibold text-sm border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 flex items-center gap-2 transition-all";
+            } else {
+                analyzerTab.classList.add('hidden');
+                atsTab.classList.remove('hidden');
+                atsBtn.className = "px-6 py-3 font-semibold text-sm border-b-2 border-brand-500 text-brand-600 dark:text-brand-500 flex items-center gap-2 transition-all";
+                analyzerBtn.className = "px-6 py-3 font-semibold text-sm border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 flex items-center gap-2 transition-all";
+            }
+        }
+
+        async function checkBackendHealth() {
+            const ping = document.getElementById('statusPing');
+            const text = document.getElementById('statusText');
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/resume/analyser`, { method: 'OPTIONS' });
+                if (response.ok || response.status === 200 || response.status === 405) {
+                    ping.className = "w-2 h-2 rounded-full bg-emerald-500";
+                    text.innerText = "API Live";
+                } else {
+                    throw new Error();
+                }
+            } catch (err) {
+                ping.className = "w-2 h-2 rounded-full bg-red-500";
+                text.innerText = "API Offline / Sleeping";
+            }
+        }
+
+        function handleFileSelect(input, mode) {
+            const file = input.files[0];
+            if (!file) return;
+
+            if (mode === 'analyzer') {
+                selectedAnalyzerFile = file;
+                document.getElementById('fileName').innerText = file.name;
+                document.getElementById('fileSize').innerText = (file.size / 1024 / 1024).toFixed(2) + ' MB';
+                document.getElementById('dropZoneDefault').classList.add('hidden');
+                document.getElementById('dropZoneSelected').classList.remove('hidden');
+                document.getElementById('submitBtn').disabled = false;
+            } else {
+                selectedAtsFile = file;
+                document.getElementById('atsFileName').innerText = file.name;
+                document.getElementById('atsDropZoneDefault').classList.add('hidden');
+                document.getElementById('atsDropZoneSelected').classList.remove('hidden');
+                document.getElementById('atsSubmitBtn').disabled = false;
+            }
+        }
+
+        function resetFileInput(mode) {
+            if (mode === 'analyzer') {
+                selectedAnalyzerFile = null;
+                document.getElementById('fileInput').value = '';
+                document.getElementById('dropZoneDefault').classList.remove('hidden');
+                document.getElementById('dropZoneSelected').classList.add('hidden');
+                document.getElementById('submitBtn').disabled = true;
+            } else {
+                selectedAtsFile = null;
+                document.getElementById('atsFileInput').value = '';
+                document.getElementById('atsDropZoneDefault').classList.remove('hidden');
+                document.getElementById('atsDropZoneSelected').classList.add('hidden');
+                document.getElementById('atsSubmitBtn').disabled = true;
+            }
+        }
+
+        function parseAiResponse(payload) {
+            if (typeof payload === 'string') {
+                try {
+                    const cleanStr = payload.replace(/```json/g, '').replace(/```/g, '').trim();
+                    return JSON.parse(cleanStr);
+                } catch (e) {
+                    console.warn("Raw string response was not direct JSON:", payload);
+                    return { summary: payload };
+                }
+            }
+            return payload;
+        }
+
+        async function handleAnalyze(event) {
+            event.preventDefault();
+            if (!selectedAnalyzerFile) return;
+
+            const formData = new FormData();
+            formData.append("file", selectedAnalyzerFile);
+
+            const loadingState = document.getElementById("loadingState");
+            const resultsDashboard = document.getElementById("resultsDashboard");
+            const submitBtn = document.getElementById("submitBtn");
+
+            loadingState.classList.remove("hidden");
+            resultsDashboard.classList.add("hidden");
+            submitBtn.disabled = true;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/resume/analyser`, {
+                    method: "POST",
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server returned HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                const analysisObj = parseAiResponse(data.analysis);
+
+                document.getElementById("scoreVal").innerText = analysisObj.qualityRating || 0;
+
+                const skillsList = document.getElementById("skillsList");
+                const skillsArr = analysisObj.keySkills || [];
+                skillsList.innerHTML = skillsArr.map(s => 
+                    `<span class="px-3 py-1 bg-brand-50 dark:bg-brand-500/10 text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-500/20 rounded-lg text-xs font-medium">${s}</span>`
+                ).join('');
+
+                const improvementsList = document.getElementById("improvementsList");
+                const impArr = analysisObj.improvements || [];
+                improvementsList.innerHTML = impArr.map(i => `<li>${i}</li>`).join('');
+
+                resultsDashboard.classList.remove("hidden");
+            } catch (err) {
+                console.error("Analysis error:", err);
+                alert("Analysis failed: " + err.message);
+            } finally {
+                loadingState.classList.add("hidden");
+                submitBtn.disabled = false;
+                lucide.createIcons();
+            }
+        }
+
+        async function handleAtsCheck(event) {
+            event.preventDefault();
+            const jdText = document.getElementById("jdInput").value.trim();
+            if (!selectedAtsFile || !jdText) {
+                alert("Please select a resume file and enter a job description.");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("file", selectedAtsFile);
+            formData.append("jd", jdText);
+
+            const atsLoadingState = document.getElementById("atsLoadingState");
+            const atsResultsDashboard = document.getElementById("atsResultsDashboard");
+            const atsSubmitBtn = document.getElementById("atsSubmitBtn");
+
+            atsLoadingState.classList.remove("hidden");
+            atsResultsDashboard.classList.add("hidden");
+            atsSubmitBtn.disabled = true;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/resume/ats-check`, {
+                    method: "POST",
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server returned HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                const atsObj = parseAiResponse(data.atsReport);
+
+                document.getElementById("atsScoreVal").innerText = atsObj.atsScore || 0;
+                document.getElementById("atsSummaryText").innerText = atsObj.summary || "";
+
+                const matchedContainer = document.getElementById("matchedKeywordsList");
+                const matchedArr = atsObj.matchedKeywords || [];
+                matchedContainer.innerHTML = matchedArr.map(kw => 
+                    `<span class="px-3 py-1 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/20 rounded-lg text-xs font-medium">${kw}</span>`
+                ).join('');
+
+                const missingContainer = document.getElementById("missingKeywordsList");
+                const missingArr = atsObj.missingKeywords || [];
+                missingContainer.innerHTML = missingArr.map(kw => 
+                    `<span class="px-3 py-1 bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/20 rounded-lg text-xs font-medium">${kw}</span>`
+                ).join('');
+
+                atsResultsDashboard.classList.remove("hidden");
+            } catch (err) {
+                console.error("ATS Check error:", err);
+                alert("ATS check failed: " + err.message);
+            } finally {
+                atsLoadingState.classList.add("hidden");
+                atsSubmitBtn.disabled = false;
+                lucide.createIcons();
+            }
+        }
+    </script>
+</body>
+</html>
