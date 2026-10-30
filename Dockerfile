@@ -32,7 +32,10 @@ USER spring:spring
 COPY --from=builder /app/target/*.jar app.jar
 
 # Expose default Spring Boot application port
+ENV PORT=8080
 EXPOSE 8080
+
+
 
 # Configure JVM memory limits and execute Spring Boot app
 ENTRYPOINT ["java", "-Xms256m", "-Xmx384m", "-XX:+UseG1GC", "-jar", "app.jar"]
