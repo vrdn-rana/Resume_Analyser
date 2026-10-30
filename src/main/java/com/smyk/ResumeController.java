@@ -21,7 +21,7 @@ public class ResumeController {
 
     public ResumeController(@Value("${GROQ_API_KEY:}") String apiKey) {
         this.restClient = RestClient.builder()
-        		.baseUrl("[https://api.groq.com/openai](https://api.groq.com/openai)")
+                .baseUrl("https://api.groq.com/openai")
                 .defaultHeader("Authorization", "Bearer " + apiKey)
                 .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
                 .build();
@@ -42,20 +42,20 @@ public class ResumeController {
             String content = tika.parseToString(file.getInputStream());
 
             String prompt = """
-             You are an expert HR resume evaluator. Analyze this resume text carefully:
+             You are an expert HR resume evaluator. Analyze this resume text:
              %s
 
-             Return ONLY a raw, strictly valid JSON object without markdown formatting or code blocks:
-             {
-               "keySkills": ["skill1", "skill2"],
-               "qualityRating": 8,
-               "improvements": ["improvement1", "improvement2", "improvement3"]
-             }
+             Provide:
+             1. Key Skills
+             2. Overall Quality Rating (1-10)
+             3. 3 Key Improvements
              """.formatted(content);
 
             String aiResponse = callGroq(prompt);
             return ResponseEntity.ok(Map.of("analysis", aiResponse));
+
         } catch (Exception e) {
+            e.printStackTrace(); // Prints exact error in Render logs
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Analysis failed: " + e.getMessage()));
         }
@@ -72,7 +72,7 @@ public class ResumeController {
             String resumeText = tika.parseToString(file.getInputStream());
 
             String prompt = """
-             You are an expert ATS analyzer. Compare the provided resume and job description.
+             You are an expert ATS analyzer. Compare the resume and job description.
 
              Resume Text:
              %s
@@ -80,18 +80,14 @@ public class ResumeController {
              Job Description:
              %s
 
-             Return ONLY a raw, strictly valid JSON object without markdown formatting or code blocks:
-             {
-               "atsScore": 85,
-               "matchedKeywords": ["keyword1", "keyword2"],
-               "missingKeywords": ["keyword3", "keyword4"],
-               "summary": "Brief assessment paragraph."
-             }
+             Analyze ATS match score, matching keywords, missing keywords from JD, and summary.
              """.formatted(resumeText, jobDescription);
 
             String aiResponse = callGroq(prompt);
             return ResponseEntity.ok(Map.of("atsReport", aiResponse));
+
         } catch (Exception e) {
+            e.printStackTrace(); // Prints exact error in Render logs
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "ATS Check failed: " + e.getMessage()));
         }
@@ -120,6 +116,6 @@ public class ResumeController {
                 return (String) message.get("content");
             }
         }
-        return "{}";
+        return "No response generated from Groq.";
     }
 }
