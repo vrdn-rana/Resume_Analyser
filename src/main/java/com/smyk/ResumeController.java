@@ -42,20 +42,23 @@ public class ResumeController {
             String content = tika.parseToString(file.getInputStream());
 
             String prompt = """
-             You are an expert HR resume evaluator. Analyze this resume text:
+             Analyze this resume text:
              %s
 
-             Provide:
-             1. Key Skills
-             2. Overall Quality Rating (1-10)
-             3. 3 Key Improvements
+             Respond ONLY with a valid JSON object. Do not include markdown code blocks like ```json or any introductory text.
+             Follow this exact JSON structure:
+             {
+               "keySkills": ["Skill 1", "Skill 2", "Skill 3"],
+               "qualityRating": 8,
+               "improvements": ["Improvement 1", "Improvement 2", "Improvement 3"]
+             }
              """.formatted(content);
 
             String aiResponse = callGroq(prompt);
             return ResponseEntity.ok(Map.of("analysis", aiResponse));
 
         } catch (Exception e) {
-            e.printStackTrace(); // Prints exact error in Render logs
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Analysis failed: " + e.getMessage()));
         }
@@ -72,22 +75,30 @@ public class ResumeController {
             String resumeText = tika.parseToString(file.getInputStream());
 
             String prompt = """
-             You are an expert ATS analyzer. Compare the resume and job description.
+             Compare the provided resume and job description as an ATS expert.
 
-             Resume Text:
+             Resume:
              %s
 
              Job Description:
              %s
 
-             Analyze ATS match score, matching keywords, missing keywords from JD, and summary.
+             Respond ONLY with a valid JSON object. Do not include markdown code blocks like ```json or any introductory text.
+             Ensure missingKeywords ONLY contains terms present in the Job Description but absent from the Resume.
+             Follow this exact JSON structure:
+             {
+               "atsScore": 68,
+               "matchedKeywords": ["Java", "Spring Boot", "SQL"],
+               "missingKeywords": ["JUnit", "Mockito", "SOLID Principles"],
+               "summary": "The resume has strong technical alignment in core languages, but lacks testing and debugging terminology."
+             }
              """.formatted(resumeText, jobDescription);
 
             String aiResponse = callGroq(prompt);
             return ResponseEntity.ok(Map.of("atsReport", aiResponse));
 
         } catch (Exception e) {
-            e.printStackTrace(); // Prints exact error in Render logs
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "ATS Check failed: " + e.getMessage()));
         }
@@ -99,7 +110,7 @@ public class ResumeController {
             "messages", List.of(
                 Map.of("role", "user", "content", userPrompt)
             ),
-            "temperature", 0.2
+            "temperature", 0.1
         );
 
         Map<?, ?> response = restClient.post()
@@ -113,7 +124,13 @@ public class ResumeController {
             if (!choices.isEmpty()) {
                 Map<?, ?> firstChoice = (Map<?, ?>) choices.get(0);
                 Map<?, ?> message = (Map<?, ?>) firstChoice.get("message");
-                return (String) message.get("content");
+                String content = (String) message.get("content");
+                
+                // Strip markdown backticks if AI accidentally wraps JSON
+                if (content != null) {
+                    content = content.replaceAll("```json", "").replaceAll("```", "").trim();
+                }
+                return content;
             }
         }
         return "{}";
