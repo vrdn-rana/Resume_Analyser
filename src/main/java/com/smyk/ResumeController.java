@@ -96,8 +96,8 @@ public class ResumeController {
 
 	    return Map.of("atsReport", aiResponse);  
 	}
-	
-	@RequestMapping(value = "/**", method = RequestMethod.OPTIONS)
+	// Add inside ResumeController class
+    @RequestMapping(value = "/**", method = RequestMethod.OPTIONS)
     public ResponseEntity<Void> handleOptions() {
         return ResponseEntity.ok().build();
     }
