@@ -21,7 +21,7 @@ public class ResumeController {
 
     public ResumeController(@Value("${GROQ_API_KEY:}") String apiKey) {
         this.restClient = RestClient.builder()
-                .baseUrl("https://api.groq.com/openai")
+        		.baseUrl("[https://api.groq.com/openai](https://api.groq.com/openai)")
                 .defaultHeader("Authorization", "Bearer " + apiKey)
                 .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
                 .build();
