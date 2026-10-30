@@ -35,4 +35,4 @@ COPY --from=builder /app/target/*.jar app.jar
 EXPOSE 8080
 
 # Configure JVM memory limits and execute Spring Boot app
-ENTRYPOINT ["java", "-XX:+UseG1GC", "-XX:MaxRAMPercentage=75.0", "-jarsss", "app.jar"]
+ENTRYPOINT ["java", "-Xms256m", "-Xmx384m", "-XX:+UseG1GC", "-jar", "app.jar"]
